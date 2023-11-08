@@ -28,9 +28,9 @@ russian_stopwords = set(stopwords.words("russian"))
 
 @ray.remote
 def parse_tg():
-    api_id = '27056526'
-    api_hash = '8bc5364447b9412f5c526b164dae05fe'
-    phone = '79124445050'
+    api_id = ''
+    api_hash = ''
+    phone = ''
 
     with open('tg-channels.txt', 'r') as channels_file:
         channels = channels_file.read().split('\n')
@@ -57,7 +57,7 @@ def parse_tg():
 # PARSING FROM VK
 @ray.remote
 def parse_vk() -> None:
-    TOKEN = 'de7d677dde7d677dde7d677d04dd688e40dde7dde7d677dbb58c0ecf4cbfcbd48826c49'
+    TOKEN = ''
     version = 5.131
     count = 100
 
