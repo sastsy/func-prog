@@ -21,6 +21,10 @@ from pyrogram import Client
 
 from collections import Counter
 
+import tkinter as tk
+from tkinter import IntVar
+from tkinter import messagebox
+
 
 mystem = Mystem() 
 russian_stopwords = set(stopwords.words("russian"))
@@ -119,23 +123,73 @@ def get_popular_topics(processed_posts):
     return lda_model.print_topics(num_topics=3, num_words=4)
 
 
+class ProgramInterface(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Program Interface")
+        self.geometry("700x400")
+
+        self.create_widgets()
+
+
+    def create_widgets(self):
+
+        # Quasi-Identifiers entry
+        self.quasi_identifiers_label = tk.Label(self, text="Запуск программы")
+        self.quasi_identifiers_label.pack()
+
+        self.tg_label = tk.Label(self)
+
+        # Depersonalization button
+        self.depersonalize_button = tk.Button(self, text="Start", command=self.depersonalize_dataset)
+        self.depersonalize_button.pack(pady=20)
+
+
+    def depersonalize_dataset(self):
+        ray.init()
+        print("STARTING")
+        messagebox.showinfo('Starting')
+        vk_result, tg_result = ray.get([parse_vk.remote(), parse_tg.remote()])
+
+        print("STARTED PREPROCESSING")
+        messagebox.showinfo("STARTED PREPROCESSING")
+
+        processed_data_parallel_vk = ray.get([parallel_preprocessing.remote(text) for text in vk_result])
+        processed_data_parallel_tg = ray.get([parallel_preprocessing.remote(text) for text in tg_result])
+        
+        pop_topics_vk = get_popular_topics(processed_data_parallel_vk)
+        pop_topics_tg = get_popular_topics(processed_data_parallel_tg)
+
+        with open('topics_vk.txt', 'a') as topics_vk:
+            l = []
+            for topic in pop_topics_vk:
+                l.append(str(topic))
+                topics_vk.write(str(topic) + '\n')
+            self.vk = tk.Label(self, text='VK\n')
+            self.vk.pack()
+            self.vk_label = tk.Label(self, text='\n'.join(l))
+            self.vk_label.pack()
+        
+        messagebox.showinfo("PREPROCESSED VK")
+
+        with open('topics_tg.txt', 'a') as topics_tg:
+            g = []
+            for topic in pop_topics_tg:
+                g.append(str(topic))
+                topics_tg.write(str(topic) + '\n')
+            self.tg = tk.Label(self, text='TG\n')
+            self.tg.pack()
+            self.tg_label = tk.Label(self, text='\n'.join(g))
+            self.tg_label.pack()
+        
+        print("DONE")
+        messagebox.showinfo('DONE')
+
+
+
 if __name__ == '__main__':
-    ray.init()
-    print("STARTING")
-    vk_result, tg_result = ray.get([parse_vk.remote(), parse_tg.remote()])
-    result = vk_result + tg_result
-
-    print("STARTED PREPROCESSING")
-
-    processed_data_parallel = ray.get([parallel_preprocessing.remote(text) for text in result])
-    
-    pop_topics = get_popular_topics(processed_data_parallel)
-
-    with open('topicss.txt', 'a') as topics:
-        for topic in pop_topics:
-            topics.write(str(topic) + '\n')
-    
-    print("DONE")
+    program_interface = ProgramInterface()
+    program_interface.mainloop()
 
 
 
