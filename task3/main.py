@@ -1,9 +1,6 @@
 import asyncio
 import websockets
 import json
-import concurrent.futures
-import base64
-
 
 class ChatServer:
     def __init__(self):
@@ -12,12 +9,13 @@ class ChatServer:
 
     async def handle_client(self, websocket):
         self.clients.add(websocket)
-        print(self.clients)
+        print(f"Client {websocket} connected.")
         try:
             async for message in websocket:
                 await self.handle_message(websocket, message)
         finally:
             self.clients.remove(websocket)
+            print(f"Client {websocket} disconnected.")
 
     async def handle_message(self, sender, message):
         data = json.loads(message)
@@ -33,30 +31,23 @@ class ChatServer:
     async def handle_join(self, sender, data):
         room_name = data.get('room')
         self.rooms.setdefault(room_name, set()).add(sender)
-        
-        data = {'type': 'message', 'room': room_name, 'message': f'{sender} joined {room_name}!'}
 
-        # await self.handle_chat_message(self, sender, data)
+        join_message = {'type': 'message', 'room': room_name, 'message': f'{sender} joined {room_name}!'}
+        await self.broadcast(room_name, join_message)
+
         print(f'User {sender} has joined the {room_name} room')
 
     async def handle_chat_message(self, sender, data):
         room_name = data.get('room')
         message = data.get('message')
 
-        if room_name in self.rooms:
-            recipients = self.rooms[room_name]
-            for recipient in recipients:
-                if recipient != sender:
-                    await recipient.send(json.dumps({'type': 'message', 'room': room_name, 'message': message}))
-                    print(f'The message: "{message}" has been sent to participant {recipient} in {room_name} from {sender}')
-    
-    async def handle_private_message(self, sender, data):
-        recipient = data.get('recipient')
-        message = data.get('message')
+        chat_message = {'type': 'message', 'room': room_name, 'message': message}
+        await self.broadcast(room_name, chat_message)
 
-        if recipient in self.clients:
-            await recipient.send(json.dumps({'type': 'private', 'message': message, 'sender': sender}))
-            print(f'{recipient} got a message: "{message}" from {sender}')
+    async def broadcast(self, room, message):
+        if room in self.rooms:
+            for client in self.rooms[room]:
+                await client.send(json.dumps(message))
 
     async def server(self, host, port):
         server = await websockets.serve(self.handle_client, host, port, ping_timeout=60, ping_interval=20)
@@ -65,8 +56,10 @@ class ChatServer:
 
 async def main():
     chat_server = ChatServer()
-    await chat_server.server("localhost", 8765)
-
+    try:
+        await chat_server.server("localhost", 8765)
+    except KeyboardInterrupt:
+        print("Server stopped by user.")
 
 if __name__ == "__main__":
     asyncio.run(main())
