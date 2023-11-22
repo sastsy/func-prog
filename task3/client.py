@@ -3,14 +3,16 @@ import websockets
 import json
 import tkinter as tk
 from tkinter import scrolledtext, Entry, Button
+from datetime import datetime
 
 
 class ChatClientGUI:
-    def __init__(self, uri):
+    def __init__(self, name, uri):
+        self.name = name
         self.uri = uri
         self.chat_client = None
         self.root = tk.Tk()
-        self.root.title("Chat Client")
+        self.root.title(f"Client: {self.name}")
         self.root.resizable(True, True)
 
         self.message_area = scrolledtext.ScrolledText(self.root, width=40, height=15)
@@ -41,8 +43,7 @@ class ChatClientGUI:
         self.send_button_user.grid(row=3, column=2)
 
     async def connect(self):
-        self.chat_client = ChatClient(self.uri, self)
-        print('trying to connect')
+        self.chat_client = ChatClient(self.name, self.uri, self)
         await self.chat_client.connect()
         print('successfully connected')
 
@@ -79,13 +80,15 @@ class ChatClientGUI:
 
 
 class ChatClient:
-    def __init__(self, uri, gui):
+    def __init__(self, name, uri, gui):
+        self.name = name
         self.uri = uri
         self.websocket = None
         self.gui = gui
 
     async def connect(self):
         self.websocket = await websockets.connect(self.uri)
+        await self.websocket.send(json.dumps({'type': 'set_name', 'name': self.name}))
         asyncio.create_task(self.receive_messages())
 
     async def receive_messages(self):
@@ -94,35 +97,39 @@ class ChatClient:
             data = json.loads(message)
             message_type = data.get('type')
 
+            now = datetime.now()
+
             if message_type == 'message':
-                sender = data.get('sender')
+                sender = data.get('name')
                 text = data.get('message')
                 room = data.get('room')
-                self.gui.message_area.insert(tk.END, f'{sender} in {room} : {text}\n')
+                self.gui.message_area.insert(tk.END, f'{now.strftime("%d/%m/%Y %H:%M")} {sender} ({room}): {text}\n')
             elif message_type == 'private':
-                sender = data.get('sender')
+                sender = data.get('name')
                 text = data.get('message')
-                self.gui.message_area.insert(tk.END, f'Private from {sender}: {text}\n')
+                self.gui.message_area.insert(tk.END, f'{now.strftime("%d/%m/%Y %H:%M")} {sender} (private): {text}\n')
 
     async def send_message_room(self, room_name, message):
-        message_data = {'type': 'message', 'room': room_name, 'message': message}
+        message_data = {'type': 'message', 'room': room_name, 'message': message, 'name': self.name}
         await self.websocket.send(json.dumps(message_data))
 
     async def send_message_user(self, user_name, message):
-        message_data = {'type': 'private', 'recipient': user_name, 'message': message}
+        message_data = {'type': 'private', 'recipient': user_name, 'message': message, 'name': self.name}
         await self.websocket.send(json.dumps(message_data))
     
     async def join_room(self, room):
-        join_data = {'type': 'join', 'room': room}
+        join_data = {'type': 'join', 'room': room, 'name': self.name}
         await self.websocket.send(json.dumps(join_data))
 
 
 async def main():
+    print("Enter your name:")
+    name = input()
     uri = "ws://localhost:8765"
-    chat_gui = ChatClientGUI(uri)
-    print('trying to connect')
+    chat_gui = ChatClientGUI(name, uri)
     await chat_gui.connect()
-    print('connected')
     await chat_gui.run()
+
+
 if __name__ == "__main__":
     asyncio.run(main())
