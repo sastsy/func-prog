@@ -15,7 +15,7 @@ class ImageProcessorApp():
         self.filters = {
             "sharpen": tk.IntVar(),
             "sepia": tk.IntVar(),
-            "shrink": tk.IntVar()
+            "shrink": tk.IntVar(),
         }
 
         self.create_widgets()
@@ -48,15 +48,15 @@ class ImageProcessorApp():
     def apply_filters(self, input_path, output_path):
         print('started processing')
         original_image = Image.open(input_path)
-        print(self.filters)
+        processed_image = original_image
+        # print(self.filters)
         for filter_name, filter_var in self.filter_values.items():
             if filter_var:
                 filter_func = self.get_filter_function(filter_name)
-                processed_image = filter_func(original_image)
-                output_filename = f"{os.path.splitext(os.path.basename(input_path))[0]}_{filter_name}.jpg"
-                output_filepath = os.path.join(output_path, output_filename)
-                print(output_filepath)
-                processed_image.save(output_filepath)
+                processed_image = filter_func(processed_image)
+        output_filename = f"{os.path.splitext(os.path.basename(input_path))[0]}_{filter_name}.jpg"
+        output_filepath = os.path.join(output_path, output_filename)
+        processed_image.save(output_filepath)
 
     def get_filter_function(self, filter_name):
         if filter_name == "sharpen":
